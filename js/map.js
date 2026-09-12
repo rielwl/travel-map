@@ -146,52 +146,179 @@
       });
     }
 
-    /* ---------- pins ---------- */
+    /* ---------- pins ----------
+     *
+     * Pins that would overlap on screen collapse into one disc carrying the
+     * count. Clustering is measured in POST-ZOOM units, so a cluster splits
+     * apart as you zoom in rather than being baked in at one scale. Two pins
+     * are never merged if either is selected — the detail card's pin has to
+     * stay visible with its ring — and dimmed pins are left alone so a count
+     * never includes something the filter excluded. */
 
-    function paintPins() {
-      gPins.selectAll("*").remove();
-      pinById = {};
+    var CLUSTER_GAP = 15;   // post-zoom units between centres before merging
+    var CLUSTER_R = 6.4;    // design's clustered-pin radius
+
+    function layout() {
+      var singles = [], clusterable = [];
 
       state.places.forEach(function (p) {
         var xy = proj([p.lon, p.lat]);
         if (!xy || !isFinite(xy[0]) || !isFinite(xy[1])) return;
-
-        var g = gPins.append("g")
-          .attr("class", pinClass(p))
-          .attr("transform", "translate(" + xy[0].toFixed(2) + "," + xy[1].toFixed(2) + ")")
-          .attr("tabindex", 0)
-          .attr("role", "button")
-          .attr("aria-label", pinLabel(p));
-
-        // Inner group carries the inverse zoom scale, so pins hold their size.
-        var s = g.append("g").attr("class", "pm-pinscale");
-        var r = dims.r;
-        s.append("circle").attr("class", "pm-halo").attr("r", +(r * 2.4).toFixed(2));
-        s.append("circle").attr("class", "pm-hit").attr("r", 9);
-        s.append("circle").attr("class", "pm-core").attr("r", +r.toFixed(2));
-        s.append("circle").attr("class", "pm-ring").attr("r", +(r * 3.1).toFixed(2))
-          .attr("fill", "none").attr("stroke", "none");
-
-        var node = g.node();
-        pinById[p.id] = node;
-
-        node.addEventListener("click", function (e) {
-          e.stopPropagation();
-          if (opts.onPinClick) opts.onPinClick(p.id);
-        });
-        node.addEventListener("keydown", function (e) {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            if (opts.onPinClick) opts.onPinClick(p.id);
-          }
-        });
-        node.addEventListener("mouseenter", function () { hover(p, node); });
-        node.addEventListener("focus", function () { hover(p, node); });
-        node.addEventListener("mouseleave", function () { hover(null); });
-        node.addEventListener("blur", function () { hover(null); });
+        var entry = { p: p, xy: xy, z: transform.apply(xy) };
+        var dim = state.isDim && state.isDim(p);
+        if (dim || p.id === state.selectedId) singles.push(entry);
+        else clusterable.push(entry);
       });
 
+      // Greedy single-pass grouping: near enough to an open group, join it.
+      var groups = [];
+      clusterable.forEach(function (e) {
+        for (var i = 0; i < groups.length; i++) {
+          var g = groups[i];
+          if (Math.hypot(g.z[0] - e.z[0], g.z[1] - e.z[1]) < CLUSTER_GAP) {
+            g.members.push(e);
+            // Re-centre on the running mean so a group does not drift toward
+            // whichever member happened to be first.
+            var n = g.members.length;
+            g.z = [
+              g.members.reduce(function (s, m) { return s + m.z[0]; }, 0) / n,
+              g.members.reduce(function (s, m) { return s + m.z[1]; }, 0) / n
+            ];
+            return;
+          }
+        }
+        groups.push({ z: e.z.slice(), members: [e] });
+      });
+
+      var out = singles.map(function (e) { return { kind: "pin", e: e }; });
+      groups.forEach(function (g) {
+        if (g.members.length === 1) out.push({ kind: "pin", e: g.members[0] });
+        else out.push({ kind: "cluster", group: g });
+      });
+      return out;
+    }
+
+    /* Rebuilding the pin layer on every zoom frame is wasteful when nothing
+       has changed, so compare a cheap signature first. It has to cover
+       everything that affects the rendered result, not just the grouping:
+       moving the selection between two unclustered pins leaves the groups
+       identical but still has to repaint both rings. */
+    function signature(items) {
+      return items.map(function (it) {
+        if (it.kind === "cluster") {
+          return "c" + it.group.members.map(function (m) { return m.p.id; }).sort().join(",");
+        }
+        var p = it.e.p;
+        return "p" + p.id +
+               (p.id === state.selectedId ? "*" : "") +
+               (state.isDim && state.isDim(p) ? "-" : "");
+      }).sort().join("|");
+    }
+
+    var lastSignature = null;
+
+    function paintPins(force) {
+      var items = layout();
+      var sig = signature(items);
+      if (!force && sig === lastSignature) { applyPinScale(); return; }
+      lastSignature = sig;
+
+      gPins.selectAll("*").remove();
+      pinById = {};
+
+      items.forEach(function (it) {
+        if (it.kind === "cluster") drawCluster(it.group);
+        else drawPin(it.e);
+      });
+
+      // Selected pin last, so its ring is not covered by a neighbour.
+      var sel = state.selectedId && pinById[state.selectedId];
+      if (sel && sel.parentNode) sel.parentNode.appendChild(sel);
+
       applyPinScale();
+    }
+
+    function drawPin(e) {
+      var p = e.p;
+      var g = gPins.append("g")
+        .attr("class", pinClass(p))
+        .attr("transform", "translate(" + e.xy[0].toFixed(2) + "," + e.xy[1].toFixed(2) + ")")
+        .attr("tabindex", 0)
+        .attr("role", "button")
+        .attr("aria-label", pinLabel(p));
+
+      // Inner group carries the inverse zoom scale, so pins hold their size.
+      var s = g.append("g").attr("class", "pm-pinscale");
+      var r = dims.r;
+      s.append("circle").attr("class", "pm-halo").attr("r", +(r * 2.4).toFixed(2));
+      s.append("circle").attr("class", "pm-hit").attr("r", 9);
+      s.append("circle").attr("class", "pm-core").attr("r", +r.toFixed(2));
+      s.append("circle").attr("class", "pm-ring").attr("r", +(r * 3.1).toFixed(2))
+        .attr("fill", "none").attr("stroke", p.id === state.selectedId ? "" : "none");
+
+      var node = g.node();
+      pinById[p.id] = node;
+
+      node.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (opts.onPinClick) opts.onPinClick(p.id);
+      });
+      node.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          if (opts.onPinClick) opts.onPinClick(p.id);
+        }
+      });
+      node.addEventListener("mouseenter", function () { hover(p, node); });
+      node.addEventListener("focus", function () { hover(p, node); });
+      node.addEventListener("mouseleave", function () { hover(null); });
+      node.addEventListener("blur", function () { hover(null); });
+    }
+
+    function drawCluster(group) {
+      // The group centre is in post-zoom units; put it back into the layer's
+      // own coordinates, which the zoom transform then re-applies.
+      var at = transform.invert(group.z);
+      var n = group.members.length;
+      var names = group.members.map(function (m) { return m.p.city; });
+
+      var g = gPins.append("g")
+        .attr("class", "pm-cluster")
+        .attr("transform", "translate(" + at[0].toFixed(2) + "," + at[1].toFixed(2) + ")")
+        .attr("tabindex", 0)
+        .attr("role", "button")
+        .attr("aria-label", n + " places here: " + names.slice(0, 6).join(", ") +
+              (n > 6 ? ", and " + (n - 6) + " more" : "") + ". Activate to zoom in.");
+
+      var s = g.append("g").attr("class", "pm-pinscale");
+      s.append("circle").attr("class", "pm-cdisc").attr("r", CLUSTER_R);
+      s.append("text").attr("class", "pm-ccount")
+        .attr("text-anchor", "middle").attr("dy", "0.34em")
+        .text(n);
+
+      var node = g.node();
+      var open = function () {
+        // Zoom toward the cluster; repeated activation keeps splitting it.
+        svg.transition().duration(250).call(zoom.scaleBy, 2.2, group.z);
+      };
+      node.addEventListener("click", function (ev) { ev.stopPropagation(); open(); });
+      node.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open(); }
+      });
+      node.addEventListener("mouseenter", function () { hoverCluster(group, names); });
+      node.addEventListener("focus", function () { hoverCluster(group, names); });
+      node.addEventListener("mouseleave", function () { hover(null); });
+      node.addEventListener("blur", function () { hover(null); });
+    }
+
+    // A cluster reports itself rather than a single place, so the tooltip can
+    // say what activating it would open up.
+    function hoverCluster(group, names) {
+      if (!opts.onPinHover) return;
+      opts.onPinHover(
+        { cluster: true, count: names.length, names: names },
+        { x: (group.z[0] / dims.w) * 100, y: (group.z[1] / dims.h) * 100 }
+      );
     }
 
     function pinClass(p) {
@@ -206,22 +333,6 @@
                : p.to ? p.from + " to " + p.to
                : p.from;
       return p.city + ", " + p.country + ". " + when + ".";
-    }
-
-    function repaintPinClasses() {
-      state.places.forEach(function (p) {
-        var node = pinById[p.id];
-        if (!node) return;
-        var cls = pinClass(p);
-        if (node.getAttribute("class") !== cls) node.setAttribute("class", cls);
-        // The selection ring is the only stroked circle; toggle it directly so
-        // the CSS cascade does not have to fight the inline defaults.
-        var ring = node.querySelector(".pm-ring");
-        if (ring) ring.setAttribute("stroke", p.id === state.selectedId ? "" : "none");
-      });
-      // Selected pin last, so its ring is not covered by neighbouring pins.
-      var sel = state.selectedId && pinById[state.selectedId];
-      if (sel && sel.parentNode) sel.parentNode.appendChild(sel);
     }
 
     function hover(p, node) {
@@ -240,7 +351,9 @@
     function onZoom(event) {
       transform = event.transform;
       root.attr("transform", transform);
-      applyPinScale();
+      // Re-cluster as the scale changes: groups split as you zoom in. paintPins
+      // only touches the DOM when the grouping actually changed.
+      paintPins();
       if (opts.onZoom) opts.onZoom(transform.k);
     }
 
@@ -294,7 +407,10 @@
       Object.keys(next).forEach(function (k) { state[k] = next[k]; });
       if (!svg) return;
       paintCountries();
-      if (placesChanged) paintPins(); else repaintPinClasses();
+      // Selection and filtering both change which pins are eligible to cluster,
+      // so the layout is recomputed either way; paintPins skips the DOM work
+      // when the grouping is unchanged.
+      paintPins(placesChanged);
     };
 
     /* Inspection helpers. Handy from the console when a country is not

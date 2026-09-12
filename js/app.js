@@ -645,9 +645,16 @@
 
   function showTip(p, pos) {
     if (!p) { els.tip.hidden = true; return; }
-    els.tip.innerHTML = "<b>" + esc(p.city) + "</b>" +
-      (undated(p) ? "" : " <span>" + esc(dates(p)) + "</span>");
-    els.tip.style.left = pos.x + "%";
+    if (p.cluster) {
+      els.tip.innerHTML = "<b>" + p.count + " places</b> <span>" +
+        esc(p.names.slice(0, 3).join(", ")) +
+        (p.count > 3 ? " +" + (p.count - 3) : "") + "</span>";
+    } else {
+      els.tip.innerHTML = "<b>" + esc(p.city) + "</b>" +
+        (undated(p) ? "" : " <span>" + esc(dates(p)) + "</span>");
+    }
+    // Keep the tip inside the map box when the pin is near an edge.
+    els.tip.style.left = Math.max(10, Math.min(90, pos.x)) + "%";
     els.tip.style.top = pos.y + "%";
     els.tip.hidden = false;
   }

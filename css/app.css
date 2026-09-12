@@ -141,6 +141,19 @@ a:hover { color: var(--ink); }
 .pm-pin .pm-hit { fill: transparent; }
 .pm-pin .pm-core { fill: var(--accent); }
 .pm-pin:hover .pm-halo { fill: var(--accent); opacity: .3; }
+/* Clustered pins — a solid disc carrying the count, per the style tile. */
+.pm-cluster { cursor: pointer; }
+.pm-cluster .pm-cdisc { fill: var(--accent); }
+.pm-cluster .pm-ccount {
+  fill: var(--on-accent);
+  font: 500 7.5px/1 "IBM Plex Mono", monospace;
+  pointer-events: none;
+  user-select: none;
+}
+.pm-cluster:hover .pm-cdisc { opacity: .85; }
+.pm-cluster:focus { outline: none; }
+.pm-cluster:focus-visible .pm-cdisc { stroke: var(--ink); stroke-width: 1; }
+
 .pm-pin.is-sel .pm-ring { fill: none; stroke: var(--accent); stroke-width: 1; }
 .pm-pin.is-sel .pm-halo { fill: var(--accent); opacity: .22; }
 /* Filtering dims rather than removes, so the map never reflows under you. */
@@ -168,7 +181,9 @@ a:hover { color: var(--ink); }
   font: 400 10.5px/1.35 "IBM Plex Mono", monospace;
   letter-spacing: .04em;
   color: var(--ink);
-  white-space: nowrap;
+  /* Wraps rather than running off the map when a cluster lists several names.
+     Short single-pin labels still sit on one line. */
+  max-width: 190px;
   transform: translate(-50%, calc(-100% - 10px));
 }
 .pm-tip[hidden] { display: none; }

@@ -143,6 +143,17 @@ the two scripts: `d3@7.9.0`, `topojson-client@3.1.0`, and
 `world-atlas@2.0.2/countries-110m.json` for the country shapes. Fonts are
 Spectral and IBM Plex Mono from Google Fonts.
 
+### Clustered pins
+
+Pins that would overlap collapse into one disc carrying the count. Grouping is
+measured in post-zoom units, so clusters split apart as you zoom in rather than
+being fixed at one scale; activating a cluster (click, or Enter when focused)
+zooms toward it, and repeating that keeps splitting it.
+
+Two pins are never merged if either is **selected** — the detail card's pin has
+to stay visible with its ring — and pins dimmed by the year filter are left
+standalone, so a count never includes something the filter excluded.
+
 ### The country join
 
 `world-atlas` identifies countries by ISO 3166-1 **numeric** id (`"620"`), not
@@ -197,6 +208,9 @@ these are the calls made:
 
 Additions not in the artboards, all built in the existing button/card language:
 the theme toggle, the hover tooltip, the zoom controls and the draft banner.
+The clustered pin state IS from the style tile (disc r 6.4, count in Plex Mono
+7.5px on `--on-accent`); the splitting-on-zoom behaviour around it is not, since
+the design specified the state but not the interaction.
 
 The design's three place types (lived / visited / passed through) were removed
 along with their filter, their legend keys and the `type` field: this map records
