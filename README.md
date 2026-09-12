@@ -6,9 +6,19 @@ as an iframe.
 
 **Live:** https://rielwl.github.io/travel-map/
 
-> **`data/places.json` starts empty**, so the page opens on its empty state
-> until you add somewhere. See [Adding places](#adding-places). The design's
-> 44-place sample set was removed — it was invented data, not a travel history.
+> `data/places.json` holds the real list — 50 places across 11 countries. See
+> [Adding places](#adding-places) to add more. Emptying the file to `[]` brings
+> back the designed empty state.
+
+### Entries that are not cities
+
+A few entries are islands, regions or scenic areas rather than towns, so they
+carry a representative coordinate: **Jeju Island** (on Jeju City), **Hokkaido**
+(on Sapporo), **Penang** (on George Town), **Langkawi** (on Kuah), **Chiemsee**
+(centre of the lake), **Black Forest** (centre of the region), **Wangxiangu**
+(the valley in Yiyang County, approximate), and **Nanjing County** — 南靖县 in
+Fujian, the tulou county, which is a different place from Nanjing in Jiangsu and
+is listed separately.
 
 ---
 
