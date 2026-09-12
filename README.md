@@ -6,10 +6,9 @@ embedded in Notion as an iframe.
 
 **Live:** https://rielwl.github.io/travel-map/
 
-> **The 44 places in `data/places.json` are sample data, not your travel
-> history.** They came with the design and exist so the page is not empty on
-> first load. Replace them — see [Adding places](#adding-places). Clearing the
-> file out entirely gives you the empty state.
+> **`data/places.json` starts empty**, so the page opens on its empty state
+> until you add somewhere. See [Adding places](#adding-places). The design's
+> 44-place sample set was removed — it was invented data, not a travel history.
 
 ---
 
@@ -149,10 +148,9 @@ hand-maintained and is never touched by the script.
 
 ## Known limitation
 
-**Singapore does not tint.** Natural Earth at 110m resolution has no polygon for
-countries that small, so Singapore gets a pin and counts in the stats but the
-country never fills in. It is the only country in the sample data affected;
-Monaco, Bahrain, Malta and similar would behave the same way.
+**Very small countries do not tint.** Natural Earth at 110m resolution has no
+polygon for them, so they get a pin and count in the stats but the country
+never fills in. Singapore, Monaco, Bahrain, Malta and similar are affected.
 
 To fix it, change `WORLD_URL` in `js/map.js` from `countries-110m.json` to
 `countries-50m.json`. That is roughly 6x the payload and nothing else has to
