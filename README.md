@@ -1,8 +1,8 @@
 # Places I've been
 
-A personal world map of places lived in, visited and passed through. One static
-page — no build step, no framework, no server — deployed to GitHub Pages and
-embedded in Notion as an iframe.
+A personal world map of the cities I've been to. One static page — no build
+step, no framework, no server — deployed to GitHub Pages and embedded in Notion
+as an iframe.
 
 **Live:** https://rielwl.github.io/travel-map/
 
@@ -86,16 +86,18 @@ the extra commit step.
   "iso3": "PRT",
   "lat": 38.72,
   "lon": -9.14,
-  "type": "lived",
   "from": "2019",
-  "to": "2021",
-  "note": "Two years on a hill in Graça.",
+  "to": "",
+  "note": "",
   "photo": null
 }
 ```
 
-`type` is `lived` | `visited` | `passed`. `photo` takes any image URL and fills
-the 4:3 slot in the detail card; `null` leaves the dashed placeholder.
+`photo` takes any image URL and fills the 4:3 slot in the detail card; `null`
+leaves the dashed placeholder.
+
+`note` can be left `""` — the detail card simply omits it. Worth remembering
+that this page is public: a note is published the moment you commit it.
 
 **Years are optional.** Set `from` to `""` when you know you went somewhere but
 not when. Undated places still pin, still tint their country, and still count in
@@ -184,9 +186,12 @@ these are the calls made:
 | Pan/zoom | Not specified | d3-zoom, clamped, double-click resets | Build spec asked for it. Pins counter-scale so they hold their size |
 
 Additions not in the artboards, all built in the existing button/card language:
-the theme toggle, the hover tooltip, the zoom controls, the draft banner, and
-the place type as text in each list row so colour is never the only thing
-separating the three types.
+the theme toggle, the hover tooltip, the zoom controls and the draft banner.
+
+The design's three place types (lived / visited / passed through) were removed
+along with their filter, their legend keys and the `type` field: this map records
+which cities, not what the stay was. That also takes the residency windows out of
+a page that is public. Re-adding them is a small change if it is ever wanted.
 
 `css/tokens.css` is owned by the design. Editing hex values in `app.css`
 instead is what makes the two drift apart.

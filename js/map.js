@@ -168,8 +168,7 @@
         var r = dims.r;
         s.append("circle").attr("class", "pm-halo").attr("r", +(r * 2.4).toFixed(2));
         s.append("circle").attr("class", "pm-hit").attr("r", 9);
-        s.append("circle").attr("class", "pm-core")
-          .attr("r", +((p.type === "lived" ? r * 1.3 : r)).toFixed(2));
+        s.append("circle").attr("class", "pm-core").attr("r", +r.toFixed(2));
         s.append("circle").attr("class", "pm-ring").attr("r", +(r * 3.1).toFixed(2))
           .attr("fill", "none").attr("stroke", "none");
 
@@ -196,7 +195,7 @@
     }
 
     function pinClass(p) {
-      var c = "pm-pin pm-pin-" + p.type;
+      var c = "pm-pin";
       if (p.id === state.selectedId) c += " is-sel";
       if (state.isDim && state.isDim(p)) c += " is-dim";
       return c;
@@ -206,8 +205,7 @@
       var when = !p.from ? "year unknown"
                : p.to ? p.from + " to " + p.to
                : p.from;
-      var t = p.type === "passed" ? "passed through" : p.type;
-      return p.city + ", " + p.country + ". " + t + ", " + when + ".";
+      return p.city + ", " + p.country + ". " + when + ".";
     }
 
     function repaintPinClasses() {

@@ -14,7 +14,6 @@
   var DRAFT_KEY = "pm-draft-places";
   var THEME_KEY = "pm-theme";
   var COUNTRY_TOTAL = 195;
-  var TYPE_LABEL = { lived: "Lived", visited: "Visited", passed: "Passed through" };
 
   var $ = function (sel, el) { return (el || document).querySelector(sel); };
   var $$ = function (sel, el) { return Array.prototype.slice.call((el || document).querySelectorAll(sel)); };
@@ -36,7 +35,6 @@
   var state = {
     mode: "default",       // default | add | empty
     selectedId: null,
-    type: "all",
     year: "all"
   };
 
@@ -87,9 +85,8 @@
   var NO_YEAR = "none";
 
   function matches(p) {
-    var yearOK = state.year === "all"
+    return state.year === "all"
       || (state.year === NO_YEAR ? undated(p) : p.from === state.year);
-    return (state.type === "all" || p.type === state.type) && yearOK;
   }
 
   function visitCounts(list) {
@@ -126,11 +123,9 @@
     return p.to ? p.from + " – " + p.to : p.from;
   }
 
-  // "Visited · 2019" / "Visited" when there is no year to show.
-  function kicker(p) {
-    var d = dates(p);
-    return TYPE_LABEL[p.type] + (d ? " · " + d : "");
-  }
+  /* The kicker is just the year now. With no year there is nothing to put in
+     it, so the card drops it and the title takes over the padding that keeps
+     text clear of the close button. */
 
   // Undated places sort to the bottom of the list rather than to 1970.
   function byYearDesc(a, b) {
@@ -166,7 +161,7 @@
 
     els.sub.textContent = empty
       ? "A map that fills in as you go."
-      : "A slow record of where I've lived, stayed and passed through.";
+      : "A slow record of the cities I've been to.";
 
     renderStats(list, empty);
     renderYears();
@@ -249,19 +244,16 @@
     var sorted = list.slice().sort(byYearDesc);
 
     els.list.innerHTML = sorted.map(function (p) {
-      var said = p.city + ", " + p.country + ", " + TYPE_LABEL[p.type] +
+      var said = p.city + ", " + p.country +
                  (undated(p) ? ", year unknown" : ", " + dates(p));
       return '<button class="pm-row' + (p.id === state.selectedId ? " is-sel" : "") + '"' +
              ' type="button" data-place="' + esc(p.id) + '"' +
              ' aria-label="' + esc(said) + '">' +
-               '<span class="pm-dot pm-dot-' + esc(p.type) + '"></span>' +
+               '<span class="pm-dot"></span>' +
                '<span class="pm-rowmain">' +
                  '<span class="pm-rowcity">' + esc(p.city) + "</span>" +
                  '<span class="pm-rowc">' + esc(p.country) + "</span>" +
                "</span>" +
-               // The type is carried by shape in the dot and by text here, so
-               // colour is never the only thing distinguishing the three types.
-               '<span class="pm-rowtype">' + esc(p.type) + "</span>" +
                // An em dash keeps the column aligned for undated places.
                '<span class="pm-rowyear">' + (undated(p) ? "—" : esc(p.from)) + "</span>" +
              "</button>";
@@ -276,9 +268,8 @@
       " in " + s.countries + " countr" + (s.countries === 1 ? "y" : "ies") + ". " +
       list.slice().sort(byYearDesc)
         .map(function (p) {
-          return p.city + ", " + p.country + " — " +
-                 (p.type === "passed" ? "passed through" : p.type) +
-                 (undated(p) ? ", year unknown." : ", " + dates(p) + ".");
+          return p.city + ", " + p.country +
+                 (undated(p) ? " — year unknown." : " — " + dates(p) + ".");
         }).join(" ");
   }
 
@@ -296,9 +287,9 @@
   }
 
   function detailCard(p) {
-    return '<div class="pm-detail">' +
+    return '<div class="pm-detail' + (undated(p) ? " no-kicker" : "") + '">' +
       '<button class="pm-x" type="button" data-act="close" aria-label="Close">×</button>' +
-      '<div class="pm-kicker">' + esc(kicker(p)) + "</div>" +
+      (undated(p) ? "" : '<div class="pm-kicker">' + esc(dates(p)) + "</div>") +
       '<h3 class="pm-dcity">' + esc(p.city) + "</h3>" +
       '<div class="pm-dcountry">' + esc(p.country) + "</div>" +
       photoSlot(p) +
@@ -328,12 +319,6 @@
 
   function addForm() {
     var f = form;
-    var seg = ["lived", "visited", "passed"].map(function (t) {
-      return '<button class="pm-segb' + (f.type === t ? " is-on" : "") + '" type="button"' +
-             ' data-ftype="' + t + '" aria-pressed="' + (f.type === t) + '">' +
-             (t === "passed" ? "Passed" : TYPE_LABEL[t]) + "</button>";
-    }).join("");
-
     var located = f.lat != null
       ? "Location set · " + f.lat.toFixed(2) + ", " + f.lon.toFixed(2) + (f.iso3 ? " · " + f.iso3 : "")
       : "Pick a city from the list, or click the map, to set the location.";
@@ -359,9 +344,6 @@
         '<label class="pm-field pm-wide"><span>Note</span>' +
           '<textarea data-f="note" rows="3" placeholder="One or two lines you\'ll want to reread.">' + esc(f.note) + "</textarea>" +
         "</label>" +
-        '<div class="pm-field pm-wide"><span>Type</span>' +
-          '<div class="pm-seg pm-seg-form" role="group" aria-label="Type of stay">' + seg + "</div>" +
-        "</div>" +
       "</div>" +
       '<div class="pm-formactions">' +
         '<button class="pm-btn pm-btn-primary" type="button" data-act="save">Save place</button>' +
@@ -374,7 +356,7 @@
   }
 
   function blankForm() {
-    return { city: "", country: "", from: "", to: "", note: "", type: "visited",
+    return { city: "", country: "", from: "", to: "", note: "",
              lat: null, lon: null, iso3: null, error: "" };
   }
 
@@ -404,7 +386,7 @@
   function mergedJSON() {
     var all = places().map(function (p) {
       return { id: p.id, city: p.city, country: p.country, iso3: p.iso3,
-               lat: p.lat, lon: p.lon, type: p.type, from: p.from, to: p.to,
+               lat: p.lat, lon: p.lon, from: p.from, to: p.to,
                note: p.note, photo: p.photo == null ? null : p.photo };
     });
     return "[\n" + all.map(function (p) { return "  " + JSON.stringify(p); }).join(",\n") + "\n]\n";
@@ -548,7 +530,6 @@
       iso3: f.iso3 || null,
       lat: +f.lat.toFixed(4),
       lon: +f.lon.toFixed(4),
-      type: f.type,
       from: f.from,
       to: f.to,
       note: (f.note || "").trim(),
@@ -598,28 +579,13 @@
   }
 
   app.addEventListener("click", function (e) {
-    var t = e.target.closest("[data-act], [data-place], [data-type], [data-ftype], [data-zoom], .pm-acb");
+    var t = e.target.closest("[data-act], [data-place], [data-zoom], .pm-acb");
     if (!t) return;
 
     if (t.classList.contains("pm-acb")) { pickCity(t); return; }
 
     var place = t.getAttribute("data-place");
     if (place) { select(place); return; }
-
-    var type = t.getAttribute("data-type");
-    if (type) {
-      state.type = type;
-      $$("[data-type]").forEach(function (b) {
-        var on = b.getAttribute("data-type") === type;
-        b.classList.toggle("is-on", on);
-        b.setAttribute("aria-pressed", String(on));
-      });
-      render();
-      return;
-    }
-
-    var ftype = t.getAttribute("data-ftype");
-    if (ftype) { form.type = ftype; renderCard(); return; }
 
     var zoom = t.getAttribute("data-zoom");
     if (zoom && map) {

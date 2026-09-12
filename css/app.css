@@ -101,21 +101,6 @@ a:hover { color: var(--ink); }
 /* ---------- filter bar ---------- */
 
 .pm-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.pm-seg { display: flex; gap: 0; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
-.pm-segb {
-  font: 500 10.5px/1 "IBM Plex Mono", monospace;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  padding: 8px 12px;
-  background: transparent;
-  color: var(--ink-2);
-  border: 0;
-  border-left: 1px solid var(--rule-soft);
-  cursor: pointer;
-}
-.pm-segb:first-child { border-left: 0; }
-.pm-segb:hover { color: var(--ink); }
-.pm-segb.is-on { background: var(--accent-soft); color: var(--accent); }
 .pm-select {
   display: flex; align-items: center; gap: 8px;
   font: 400 10px/1 "IBM Plex Mono", monospace;
@@ -155,8 +140,6 @@ a:hover { color: var(--ink); }
 .pm-pin .pm-halo { fill: var(--accent-soft); }
 .pm-pin .pm-hit { fill: transparent; }
 .pm-pin .pm-core { fill: var(--accent); }
-.pm-pin-passed .pm-core { fill: var(--panel); stroke: var(--accent); stroke-width: 1.1; }
-.pm-pin-lived .pm-core { stroke: var(--paper); stroke-width: .8; }
 .pm-pin:hover .pm-halo { fill: var(--accent); opacity: .3; }
 .pm-pin.is-sel .pm-ring { fill: none; stroke: var(--accent); stroke-width: 1; }
 .pm-pin.is-sel .pm-halo { fill: var(--accent); opacity: .22; }
@@ -218,8 +201,6 @@ a:hover { color: var(--ink); }
 .pm-sw-visited { background: var(--visited); border: 1px solid var(--visited-edge); }
 .pm-sw-base { background: var(--land); border: 1px solid var(--land-edge); }
 .pm-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; flex: none; }
-.pm-dot-lived { width: 9px; height: 9px; box-shadow: 0 0 0 1px var(--paper); }
-.pm-dot-passed { background: var(--paper); border: 1.2px solid var(--accent); }
 
 /* ---------- side column ---------- */
 
@@ -246,7 +227,6 @@ a:hover { color: var(--ink); }
 .pm-rowcity { font: 400 14px/1.15 Spectral, serif; }
 .pm-rowc { font: 400 10px/1 "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
 .pm-rowyear { font: 400 11px/1 "IBM Plex Mono", monospace; color: var(--ink-2); }
-.pm-rowtype { font: 400 9px/1 "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
 .pm-listempty { padding: 14px 2px; font: 300 13px/1.5 Spectral, serif; color: var(--ink-3); }
 
 /* ---------- detail card / form ---------- */
@@ -274,6 +254,9 @@ a:hover { color: var(--ink); }
   letter-spacing: .12em; text-transform: uppercase; color: var(--accent);
 }
 .pm-dcity { margin: 0; font: 500 21px/1.1 Spectral, serif; }
+/* With no year there is no kicker, so the title takes over the job of keeping
+   text clear of the close button. */
+.pm-detail.no-kicker .pm-dcity { padding-right: 28px; }
 .pm-dcountry {
   font: 400 10.5px/1 "IBM Plex Mono", monospace;
   letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3);
@@ -315,8 +298,6 @@ a:hover { color: var(--ink); }
 }
 .pm-field input:focus, .pm-field textarea:focus { outline: none; border-color: var(--accent-edge); }
 .pm-field input::placeholder, .pm-field textarea::placeholder { color: var(--ink-3); }
-.pm-seg-form { width: 100%; }
-.pm-seg-form .pm-segb { flex: 1; }
 .pm-formactions { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
 
 .pm-hint {
