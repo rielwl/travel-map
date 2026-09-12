@@ -112,11 +112,7 @@
     var countries = {};
     list.forEach(function (p) { if (p.iso3) countries[p.iso3] = 1; });
     var n = Object.keys(countries).length;
-    var years = list.map(function (p) { return +p.from; }).filter(function (y) { return y > 0; });
-    // null, not 0: with no dated places at all there is no span to report, and
-    // the strip should say so with an em dash rather than claim "0 years".
-    var span = years.length ? Math.max(1, new Date().getFullYear() - Math.min.apply(null, years)) : null;
-    return { countries: n, cities: list.length, pct: Math.round((n / COUNTRY_TOTAL) * 100), years: span };
+    return { countries: n, cities: list.length, pct: Math.round((n / COUNTRY_TOTAL) * 100) };
   }
 
   /* ---------- helpers ---------- */
@@ -197,12 +193,7 @@
 
   function renderStats(list, empty) {
     var s = stats(list);
-    var vals = {
-      countries: s.countries,
-      cities: s.cities,
-      pct: s.pct + "%",
-      years: s.years == null ? "—" : s.years
-    };
+    var vals = { countries: s.countries, cities: s.cities, pct: s.pct + "%" };
     $$("[data-stat]", els.stats).forEach(function (el) {
       el.textContent = empty ? "—" : vals[el.getAttribute("data-stat")];
     });
@@ -305,18 +296,8 @@
       (undated(p) ? "" : '<div class="pm-kicker">' + esc(dates(p)) + "</div>") +
       '<h3 class="pm-dcity">' + esc(p.city) + "</h3>" +
       '<div class="pm-dcountry">' + esc(p.country) + "</div>" +
-      photoSlot(p) +
       (p.note ? '<p class="pm-note">' + esc(p.note) + "</p>" : "") +
     "</div>";
-  }
-
-  function photoSlot(p) {
-    if (p.photo) {
-      return '<div class="pm-photo has-img"><img src="' + esc(p.photo) + '" alt="' + esc(p.city) + '"></div>';
-    }
-    return '<div class="pm-photo" role="img" aria-label="No photo yet">' +
-             '<span class="pm-photolabel">photo · 4:3</span>' +
-           "</div>";
   }
 
   function emptyCard() {
@@ -399,8 +380,7 @@
   function mergedJSON() {
     var all = places().map(function (p) {
       return { id: p.id, city: p.city, country: p.country, iso3: p.iso3,
-               lat: p.lat, lon: p.lon, from: p.from, to: p.to,
-               note: p.note, photo: p.photo == null ? null : p.photo };
+               lat: p.lat, lon: p.lon, from: p.from, to: p.to, note: p.note };
     });
     return "[\n" + all.map(function (p) { return "  " + JSON.stringify(p); }).join(",\n") + "\n]\n";
   }
@@ -545,8 +525,7 @@
       lon: +f.lon.toFixed(4),
       from: f.from,
       to: f.to,
-      note: (f.note || "").trim(),
-      photo: null
+      note: (f.note || "").trim()
     });
     saveDraft();
 

@@ -1,12 +1,20 @@
-/* Design tokens. Owned by the design handoff — edit in Design, not here.
-   Values below are verbatim from design_handoff_places_map/app.css.
+/* Design tokens.
 
-   The only addition is the three-step visited scale (--visited-1/2/3): the
-   design ships a single --visited tint, and the build needs the fill to deepen
-   with visit count. Step 1 IS the design's value; steps 2 and 3 stay well below
-   --accent so pins keep their contrast against the fill, which is the
-   constraint the design calls out. --visited/--visited-edge remain as aliases
-   of step 1 so anything written against the original token still works. */
+   Paper, ink, rules and land are verbatim from the design handoff. Two
+   deliberate departures:
+
+   1. The accent is moss green rather than the handoff's amber. Chosen to match
+      the amber's contrast almost exactly — #9fb56c scores 7.92 against the dark
+      ground where #e0a13c scored 7.94 — so it carries the same weight in the
+      layout. The light accent is a touch stronger than the handoff's (5.59 vs
+      3.97 against paper), which its small uppercase labels wanted anyway. The
+      warm paper and ink are unchanged, so the page still reads as an atlas.
+
+   2. The three-step visited scale (--visited-1/2/3). The handoff ships a single
+      --visited tint; the fill needs to deepen with visit count. All three stay
+      well below --accent so pins keep their contrast against the fill, which is
+      the constraint the handoff calls out. --visited/--visited-edge remain as
+      aliases of step 1 so anything written against the original token works. */
 
 [data-theme="dark"] {
   --paper: #191715;
@@ -20,17 +28,17 @@
   --land: #272420;
   --land-edge: #3d3830;
   --grat: #252220;
-  --accent: #e0a13c;
-  --accent-soft: rgba(224, 161, 60, .16);
-  --accent-edge: rgba(224, 161, 60, .45);
+  --accent: #9fb56c;
+  --accent-soft: rgba(159, 181, 108, .16);
+  --accent-edge: rgba(159, 181, 108, .45);
   --on-accent: #191715;
 
-  --visited-1: #382c1f;
-  --visited-2: #443320;
-  --visited-3: #503a21;
-  --visited-edge-1: #60492c;
-  --visited-edge-2: #6d5330;
-  --visited-edge-3: #7a5d34;
+  --visited-1: #2c3123;
+  --visited-2: #343a28;
+  --visited-3: #3c432d;
+  --visited-edge-1: #4b5537;
+  --visited-edge-2: #57623e;
+  --visited-edge-3: #636f45;
 }
 
 [data-theme="light"] {
@@ -45,17 +53,17 @@
   --land: #e6dfce;
   --land-edge: #cabfa8;
   --grat: #e1d9c6;
-  --accent: #b05e18;
-  --accent-soft: rgba(176, 94, 24, .14);
-  --accent-edge: rgba(176, 94, 24, .4);
+  --accent: #50632f;
+  --accent-soft: rgba(80, 99, 47, .14);
+  --accent-edge: rgba(80, 99, 47, .4);
   --on-accent: #faf6ec;
 
-  --visited-1: #e7d3a9;
-  --visited-2: #ddc492;
-  --visited-3: #d3b57b;
-  --visited-edge-1: #b99c6a;
-  --visited-edge-2: #ae8e5b;
-  --visited-edge-3: #a3814d;
+  --visited-1: #dce0be;
+  --visited-2: #d0d6aa;
+  --visited-3: #c4cc96;
+  --visited-edge-1: #aeb786;
+  --visited-edge-2: #a2ac77;
+  --visited-edge-3: #96a168;
 }
 
 [data-theme] {

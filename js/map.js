@@ -13,12 +13,20 @@
 (function () {
   "use strict";
 
-  // Natural Earth 110m. At this resolution a few very small countries have no
-  // polygon at all — Singapore is the one most likely to matter here — so they
-  // show a pin but never take the visited tint. Swapping this to
-  // countries-50m.json fixes that at roughly 6x the payload; nothing else in
-  // the code has to change.
-  var WORLD_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json";
+  // Natural Earth 50m. 110m is a sixth of the payload but drops small
+  // countries entirely (Singapore, Jeju, Langkawi had no polygon to tint) and
+  // is too coarse at borders — it placed Mittenwald in Austria and Geneva in
+  // France. 230KB gzipped, fetched once and cached.
+  var WORLD_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json";
+
+  /* Natural Earth draws overseas departments as part of their parent country:
+     France's polygon includes French Guiana, 7000km away in South America. A
+     trip to Paris should not light up the Amazon coast, so a landmass only
+     takes the tint if somewhere you have actually been is within reach of it.
+     The threshold is generous — it keeps Tasmania lit from Melbourne (~200km),
+     Hainan from Guangzhou (~300km) and Borneo from Kuala Lumpur (~1000km),
+     while French Guiana misses by almost five times over. */
+  var MAX_PART_KM = 1500;
 
   // Desktop and mobile carry their own viewBox so the pins stay legible at
   // small sizes rather than shrinking with the map.
@@ -98,17 +106,27 @@
       root.append("path").attr("class", "pm-sphere").attr("d", geoPath({ type: "Sphere" }));
       root.append("path").attr("class", "pm-grat").attr("d", geoPath(d3.geoGraticule10()));
 
+      /* One path per landmass, not per country, so a detached overseas part
+         can be left untinted while the mainland lights up. Each carries a
+         thinned sample of its own outline for the distance test below. */
       gCountries = root.append("g").attr("class", "pm-countries");
       pathByIso3 = {};
       features.forEach(function (f) {
-        var d = geoPath(f);
-        if (!d) return;
-        var p = gCountries.append("path").attr("class", "pm-c").attr("d", d).node();
-        if (f.iso3) {
-          // A country can arrive as several geometries; keep them all so the
-          // whole country tints, not just one polygon.
-          (pathByIso3[f.iso3] || (pathByIso3[f.iso3] = [])).push(p);
-        }
+        if (!f.geometry) return;
+        var polys = f.geometry.type === "MultiPolygon"
+          ? f.geometry.coordinates.map(function (c) { return { type: "Polygon", coordinates: c }; })
+          : [f.geometry];
+
+        polys.forEach(function (poly) {
+          var d = geoPath(poly);
+          if (!d) return;
+          var node = gCountries.append("path").attr("class", "pm-c").attr("d", d).node();
+          if (!f.iso3) return;
+          (pathByIso3[f.iso3] || (pathByIso3[f.iso3] = [])).push({
+            node: node,
+            outline: sampleRing(poly.coordinates[0])
+          });
+        });
       });
 
       gPins = root.append("g").attr("class", "pm-pins");
@@ -126,11 +144,13 @@
       wrap.insertBefore(svg.node(), wrap.firstChild);
       transform = d3.zoomIdentity;
 
-      paintCountries();
-      // The previous signature described the SVG we just threw away, and the
-      // signature carries no geometry — so an identically-grouped place set
-      // would early-return and leave the new pin layer empty.
+      /* Both caches describe the SVG we just threw away. Neither key carries
+         geometry, so without clearing them an unchanged place set would
+         early-return and leave the freshly built layers blank. */
       lastSignature = null;
+      lastTintKey = null;
+
+      paintCountries();
       paintPins();
     }
 
@@ -140,12 +160,62 @@
       return n >= 3 ? 3 : n === 2 ? 2 : 1;
     }
 
+    // Every 6th vertex is plenty against a 1500km threshold and keeps the
+    // outlines small enough to walk on every repaint.
+    function sampleRing(ring) {
+      var out = [];
+      for (var i = 0; i < ring.length; i += 6) out.push(ring[i]);
+      if (out.length < 2 && ring.length) out.push(ring[ring.length - 1]);
+      return out;
+    }
+
+    var EARTH_KM = 6371;
+    var rad = function (d) { return d * Math.PI / 180; };
+
+    function haversine(a, b) {
+      var dLat = rad(b[1] - a[1]), dLon = rad(b[0] - a[0]);
+      var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(rad(a[1])) * Math.cos(rad(b[1])) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return 2 * EARTH_KM * Math.asin(Math.sqrt(h));
+    }
+
+    // Is any of this country's places close enough to this landmass?
+    function partIsNear(outline, spots) {
+      for (var i = 0; i < spots.length; i++) {
+        for (var j = 0; j < outline.length; j++) {
+          if (haversine(spots[i], outline[j]) <= MAX_PART_KM) return true;
+        }
+      }
+      return false;
+    }
+
+    var lastTintKey = null;
+
     function paintCountries() {
+      // The distance test walks a lot of coastline, so only redo it when the
+      // data behind it actually changed. `places` is identity-stable between
+      // renders, so this holds across filter and selection changes.
+      var key = (state.places || []).length + ":" + JSON.stringify(state.visits);
+      if (key === lastTintKey) return;
+      lastTintKey = key;
+
+      // Group the places by country once, so each landmass only tests against
+      // the places that could possibly light it.
+      var spotsByIso3 = {};
+      (state.places || []).forEach(function (p) {
+        if (!p.iso3) return;
+        (spotsByIso3[p.iso3] || (spotsByIso3[p.iso3] = [])).push([p.lon, p.lat]);
+      });
+
       Object.keys(pathByIso3).forEach(function (iso3) {
         var n = state.visits[iso3] || 0;
-        var cls = n > 0 ? "pm-c is-v" + stepFor(n) : "pm-c";
-        pathByIso3[iso3].forEach(function (p) {
-          if (p.getAttribute("class") !== cls) p.setAttribute("class", cls);
+        var spots = spotsByIso3[iso3] || [];
+        var tint = n > 0 ? "pm-c is-v" + stepFor(n) : "pm-c";
+
+        pathByIso3[iso3].forEach(function (part) {
+          var cls = (n > 0 && partIsNear(part.outline, spots)) ? tint : "pm-c";
+          if (part.node.getAttribute("class") !== cls) part.node.setAttribute("class", cls);
         });
       });
     }
@@ -457,10 +527,25 @@
     api.hasCountry = function (iso3) { return !!pathByIso3[iso3]; };
 
     api.stepOf = function (iso3) {
-      var paths = pathByIso3[iso3];
-      if (!paths) return 0;
-      var m = /is-v([123])/.exec(paths[0].getAttribute("class") || "");
-      return m ? +m[1] : 0;
+      var parts = pathByIso3[iso3];
+      if (!parts) return 0;
+      // Report the highest step across the country's landmasses: a detached
+      // overseas part may be deliberately untinted while the mainland is lit.
+      var best = 0;
+      parts.forEach(function (part) {
+        var m = /is-v([123])/.exec(part.node.getAttribute("class") || "");
+        if (m && +m[1] > best) best = +m[1];
+      });
+      return best;
+    };
+
+    // How many of a country's landmasses are tinted, and how many it has.
+    api.partsLit = function (iso3) {
+      var parts = pathByIso3[iso3] || [];
+      var lit = parts.filter(function (part) {
+        return /is-v[123]/.test(part.node.getAttribute("class") || "");
+      }).length;
+      return { lit: lit, total: parts.length };
     };
 
     // Countries referenced by places that 110m cannot draw.

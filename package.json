@@ -1,0 +1,12 @@
+{
+  "name": "travel-map",
+  "private": true,
+  "description": "A personal world map of the cities I've been to.",
+  "scripts": {
+    "serve": "python3 -m http.server 8000 --bind 127.0.0.1",
+    "test:setup": "npm install --no-save world-atlas@2.0.2 d3@7.9.0 topojson-client@3.1.0 @fontsource/spectral@5.1.0 @fontsource/ibm-plex-mono@5.1.0 playwright@1.49.1",
+    "data:setup": "npm install --no-save world-atlas@2.0.2 world-countries@5.1.0 all-the-cities@3.1.0",
+    "data": "node tools/build-data.js",
+    "test": "node test/run.js"
+  }
+}

@@ -98,13 +98,9 @@ the extra commit step.
   "lon": -9.14,
   "from": "2019",
   "to": "",
-  "note": "",
-  "photo": null
+  "note": ""
 }
 ```
-
-`photo` takes any image URL and fills the 4:3 slot in the detail card; `null`
-leaves the dashed placeholder.
 
 `note` can be left `""` — the detail card simply omits it. Worth remembering
 that this page is public: a note is published the moment you commit it.
@@ -113,8 +109,7 @@ that this page is public: a note is published the moment you commit it.
 not when. Undated places still pin, still tint their country, and still count in
 the stats — they just sort to the bottom of the list, show `—` in the year
 column, and are reachable through a **No year** option that appears in the year
-filter only when something is actually undated. With nothing dated at all,
-*years travelling* reads `—` rather than claiming zero.
+filter only when something is actually undated.
 
 `to` is `""` for a single-year entry, and can only be set if `from` is — a `to`
 on its own has nothing to run from.
@@ -128,20 +123,52 @@ on its own has nothing to run from.
 
 ```
 index.html            page shell — static markup, filled in by js/app.js
-css/tokens.css        design tokens. Edit in Design, not here
+css/tokens.css        design tokens — the palette lives here and nowhere else
 css/app.css           component styles
-js/map.js             d3-geo rendering, zoom, click-to-drop-pin
+js/map.js             d3-geo rendering, clustering, zoom, click-to-drop-pin
 js/app.js             state, filtering, side column, draft/commit flow
 data/places.json      your places — the only file you edit by hand
 data/iso-lookup.json  ISO numeric -> alpha-3 -> name  (generated)
 data/cities.json      ~5000 cities for the typeahead (generated)
 tools/build-data.js   regenerates the two generated files
+test/                 browser tests — see Testing below
 ```
 
 Dependencies are three pinned CDN files, with subresource-integrity hashes on
 the two scripts: `d3@7.9.0`, `topojson-client@3.1.0`, and
-`world-atlas@2.0.2/countries-110m.json` for the country shapes. Fonts are
+`world-atlas@2.0.2/countries-50m.json` for the country shapes. Fonts are
 Spectral and IBM Plex Mono from Google Fonts.
+
+### Testing
+
+```bash
+npm run test:setup    # once — vendors the CDN assets and installs Playwright
+npm test
+```
+
+Five suites, run headless against a locally served copy of the real page. The
+CDN requests are fulfilled from byte-identical npm copies, so the page loads
+exactly as it ships — subresource-integrity hashes included, which only pass
+because the bytes really do match.
+
+| suite | covers |
+|---|---|
+| `page` | layout, the country join, selection, the add flow, filters, zoom, both themes, mobile, the empty state, blocked storage |
+| `undated` | places with no year |
+| `clusters` | grouping, splitting on zoom, activation, keyboard reach |
+| `places` | the real `data/places.json` — every place pinned, every country tinted |
+| `regressions` | defects found in review; each fails against the code before its fix |
+
+### Landmasses, not whole countries
+
+Natural Earth draws overseas departments as part of their parent: France's
+polygon includes French Guiana, 7000km away in South America. A trip to Paris
+should not light up the Amazon coast, so a landmass only takes the tint if
+somewhere you have been is within 1500km of it (`MAX_PART_KM` in `js/map.js`).
+
+That keeps Tasmania lit from Melbourne, Hainan from Guangzhou and Borneo from
+Kuala Lumpur, while French Guiana misses by almost five times over. Countries
+are still counted whole in the stat strip — this only affects the fill.
 
 ### Clustered pins
 
@@ -182,13 +209,14 @@ hand-maintained and is never touched by the script.
 
 ## Known limitation
 
-**Very small countries do not tint.** Natural Earth at 110m resolution has no
-polygon for them, so they get a pin and count in the stats but the country
-never fills in. Singapore, Monaco, Bahrain, Malta and similar are affected.
+**Two coastal places sit just off the coastline.** At 50m, Xiamen and Malacca
+project into water by a hair. This only affects the reverse lookup used by
+click-to-drop-pin; their own pins and their countries' tints are unaffected.
 
-To fix it, change `WORLD_URL` in `js/map.js` from `countries-110m.json` to
-`countries-50m.json`. That is roughly 6x the payload and nothing else has to
-change.
+Dropping to `countries-110m.json` in `js/map.js` cuts the map payload from
+230KB to 38KB gzipped, at the cost of losing small countries entirely
+(Singapore, Jeju and Langkawi had no polygon at all) and misplacing border
+towns — 110m put Mittenwald in Austria and Geneva in France.
 
 ---
 
