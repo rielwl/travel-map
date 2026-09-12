@@ -81,9 +81,15 @@
     return places().filter(matches);
   }
 
+  // Sentinel for the "no year" filter. Safe against collision because a real
+  // year is always four digits, and unlike a control character it survives
+  // being written into an HTML attribute.
+  var NO_YEAR = "none";
+
   function matches(p) {
-    return (state.type === "all" || p.type === state.type)
-        && (state.year === "all" || p.from === state.year);
+    var yearOK = state.year === "all"
+      || (state.year === NO_YEAR ? undated(p) : p.from === state.year);
+    return (state.type === "all" || p.type === state.type) && yearOK;
   }
 
   function visitCounts(list) {
@@ -97,7 +103,9 @@
     list.forEach(function (p) { if (p.iso3) countries[p.iso3] = 1; });
     var n = Object.keys(countries).length;
     var years = list.map(function (p) { return +p.from; }).filter(function (y) { return y > 0; });
-    var span = years.length ? Math.max(1, new Date().getFullYear() - Math.min.apply(null, years)) : 0;
+    // null, not 0: with no dated places at all there is no span to report, and
+    // the strip should say so with an em dash rather than claim "0 years".
+    var span = years.length ? Math.max(1, new Date().getFullYear() - Math.min.apply(null, years)) : null;
     return { countries: n, cities: list.length, pct: Math.round((n / COUNTRY_TOTAL) * 100), years: span };
   }
 
@@ -109,7 +117,26 @@
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  function dates(p) { return p.to ? p.from + " – " + p.to : p.from; }
+  /* A place can have no year at all — "I know I went, I can't remember when".
+     `from` is "" in that case, and every label built from it has to cope. */
+  function undated(p) { return !p.from; }
+
+  function dates(p) {
+    if (undated(p)) return "";
+    return p.to ? p.from + " – " + p.to : p.from;
+  }
+
+  // "Visited · 2019" / "Visited" when there is no year to show.
+  function kicker(p) {
+    var d = dates(p);
+    return TYPE_LABEL[p.type] + (d ? " · " + d : "");
+  }
+
+  // Undated places sort to the bottom of the list rather than to 1970.
+  function byYearDesc(a, b) {
+    if (undated(a) !== undated(b)) return undated(a) ? 1 : -1;
+    return b.from.localeCompare(a.from) || a.city.localeCompare(b.city);
+  }
 
   function byId(id) {
     var all = places();
@@ -162,7 +189,12 @@
 
   function renderStats(list, empty) {
     var s = stats(list);
-    var vals = { countries: s.countries, cities: s.cities, pct: s.pct + "%", years: s.years };
+    var vals = {
+      countries: s.countries,
+      cities: s.cities,
+      pct: s.pct + "%",
+      years: s.years == null ? "—" : s.years
+    };
     $$("[data-stat]", els.stats).forEach(function (el) {
       el.textContent = empty ? "—" : vals[el.getAttribute("data-stat")];
     });
@@ -170,16 +202,22 @@
 
   function renderYears() {
     var years = {};
-    places().forEach(function (p) { years[p.from] = 1; });
+    var anyUndated = false;
+    places().forEach(function (p) {
+      if (undated(p)) anyUndated = true; else years[p.from] = 1;
+    });
     var sorted = Object.keys(years).sort().reverse();
-    var want = "all|" + sorted.join("|");
+    var want = "all|" + sorted.join("|") + (anyUndated ? "|none" : "");
     if (els.year.getAttribute("data-built") === want) {
       els.year.value = state.year;
       return;
     }
     els.year.setAttribute("data-built", want);
     els.year.innerHTML = '<option value="all">All years</option>' +
-      sorted.map(function (y) { return '<option value="' + esc(y) + '">' + esc(y) + "</option>"; }).join("");
+      sorted.map(function (y) { return '<option value="' + esc(y) + '">' + esc(y) + "</option>"; }).join("") +
+      // Only offered when something is actually undated, so the control does
+      // not advertise a filter that would always come back empty.
+      (anyUndated ? '<option value="' + esc(NO_YEAR) + '">No year</option>' : "");
     els.year.value = state.year;
   }
 
@@ -208,14 +246,14 @@
       return;
     }
 
-    var sorted = list.slice().sort(function (a, b) {
-      return b.from.localeCompare(a.from) || a.city.localeCompare(b.city);
-    });
+    var sorted = list.slice().sort(byYearDesc);
 
     els.list.innerHTML = sorted.map(function (p) {
+      var said = p.city + ", " + p.country + ", " + TYPE_LABEL[p.type] +
+                 (undated(p) ? ", year unknown" : ", " + dates(p));
       return '<button class="pm-row' + (p.id === state.selectedId ? " is-sel" : "") + '"' +
              ' type="button" data-place="' + esc(p.id) + '"' +
-             ' aria-label="' + esc(p.city + ", " + p.country + ", " + TYPE_LABEL[p.type] + ", " + dates(p)) + '">' +
+             ' aria-label="' + esc(said) + '">' +
                '<span class="pm-dot pm-dot-' + esc(p.type) + '"></span>' +
                '<span class="pm-rowmain">' +
                  '<span class="pm-rowcity">' + esc(p.city) + "</span>" +
@@ -224,7 +262,8 @@
                // The type is carried by shape in the dot and by text here, so
                // colour is never the only thing distinguishing the three types.
                '<span class="pm-rowtype">' + esc(p.type) + "</span>" +
-               '<span class="pm-rowyear">' + esc(p.from) + "</span>" +
+               // An em dash keeps the column aligned for undated places.
+               '<span class="pm-rowyear">' + (undated(p) ? "—" : esc(p.from)) + "</span>" +
              "</button>";
     }).join("");
   }
@@ -235,10 +274,11 @@
     els.summary.textContent =
       "Map of " + s.cities + " place" + (s.cities === 1 ? "" : "s") +
       " in " + s.countries + " countr" + (s.countries === 1 ? "y" : "ies") + ". " +
-      list.slice().sort(function (a, b) { return b.from.localeCompare(a.from); })
+      list.slice().sort(byYearDesc)
         .map(function (p) {
           return p.city + ", " + p.country + " — " +
-                 (p.type === "passed" ? "passed through" : p.type) + ", " + dates(p) + ".";
+                 (p.type === "passed" ? "passed through" : p.type) +
+                 (undated(p) ? ", year unknown." : ", " + dates(p) + ".");
         }).join(" ");
   }
 
@@ -258,7 +298,7 @@
   function detailCard(p) {
     return '<div class="pm-detail">' +
       '<button class="pm-x" type="button" data-act="close" aria-label="Close">×</button>' +
-      '<div class="pm-kicker">' + esc(TYPE_LABEL[p.type]) + " · " + esc(dates(p)) + "</div>" +
+      '<div class="pm-kicker">' + esc(kicker(p)) + "</div>" +
       '<h3 class="pm-dcity">' + esc(p.city) + "</h3>" +
       '<div class="pm-dcountry">' + esc(p.country) + "</div>" +
       photoSlot(p) +
@@ -311,7 +351,7 @@
           '<input type="text" data-f="country" autocomplete="off" placeholder="Chile" value="' + esc(f.country) + '">' +
         "</label>" +
         '<label class="pm-field"><span>From</span>' +
-          '<input type="text" data-f="from" inputmode="numeric" placeholder="2025" value="' + esc(f.from) + '">' +
+          '<input type="text" data-f="from" inputmode="numeric" placeholder="2025 or blank" value="' + esc(f.from) + '">' +
         "</label>" +
         '<label class="pm-field"><span>To</span>' +
           '<input type="text" data-f="to" inputmode="numeric" placeholder="optional" value="' + esc(f.to) + '">' +
@@ -487,13 +527,19 @@
     f.to = (f.to || "").trim();
 
     if (!f.city) return failForm("Give the place a name.");
-    if (!/^\d{4}$/.test(f.from)) return failForm("From needs a four-digit year.");
+    // From is optional: you can know you went somewhere without knowing when.
+    if (f.from && !/^\d{4}$/.test(f.from)) return failForm("From needs a four-digit year, or leave it empty.");
     if (f.to && !/^\d{4}$/.test(f.to)) return failForm("To needs a four-digit year, or leave it empty.");
+    if (f.to && !f.from) return failForm("Add a From year, or clear To — a To on its own has nothing to run from.");
     if (f.to && +f.to < +f.from) return failForm("To is earlier than From.");
     if (f.lat == null || f.lon == null) return failForm("Click the map, or pick a city from the list, to set the location.");
 
-    var id = slug(f.city) + "-" + f.from;
-    if (byId(id)) return failForm("There is already an entry for " + f.city + " in " + f.from + ".");
+    var id = f.from ? slug(f.city) + "-" + f.from : slug(f.city);
+    if (byId(id)) {
+      return failForm(f.from
+        ? "There is already an entry for " + f.city + " in " + f.from + "."
+        : "There is already an undated entry for " + f.city + ".");
+    }
 
     draft.push({
       id: id,
@@ -633,7 +679,8 @@
 
   function showTip(p, pos) {
     if (!p) { els.tip.hidden = true; return; }
-    els.tip.innerHTML = "<b>" + esc(p.city) + "</b> <span>" + esc(dates(p)) + "</span>";
+    els.tip.innerHTML = "<b>" + esc(p.city) + "</b>" +
+      (undated(p) ? "" : " <span>" + esc(dates(p)) + "</span>");
     els.tip.style.left = pos.x + "%";
     els.tip.style.top = pos.y + "%";
     els.tip.hidden = false;

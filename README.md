@@ -94,10 +94,21 @@ the extra commit step.
 }
 ```
 
-`type` is `lived` | `visited` | `passed`. `to` is `""` for a single-year entry.
-`id` must be unique — the app builds it as `city-slug` + `-` + `from`. `photo`
-takes any image URL and fills the 4:3 slot in the detail card; `null` leaves the
-dashed placeholder.
+`type` is `lived` | `visited` | `passed`. `photo` takes any image URL and fills
+the 4:3 slot in the detail card; `null` leaves the dashed placeholder.
+
+**Years are optional.** Set `from` to `""` when you know you went somewhere but
+not when. Undated places still pin, still tint their country, and still count in
+the stats — they just sort to the bottom of the list, show `—` in the year
+column, and are reachable through a **No year** option that appears in the year
+filter only when something is actually undated. With nothing dated at all,
+*years travelling* reads `—` rather than claiming zero.
+
+`to` is `""` for a single-year entry, and can only be set if `from` is — a `to`
+on its own has nothing to run from.
+
+`id` must be unique. The app builds it as `city-slug` + `-` + `from`, or just
+`city-slug` when there is no year.
 
 ---
 

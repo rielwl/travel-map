@@ -203,9 +203,11 @@
     }
 
     function pinLabel(p) {
-      var dates = p.to ? p.from + " to " + p.to : p.from;
+      var when = !p.from ? "year unknown"
+               : p.to ? p.from + " to " + p.to
+               : p.from;
       var t = p.type === "passed" ? "passed through" : p.type;
-      return p.city + ", " + p.country + ". " + t + ", " + dates + ".";
+      return p.city + ", " + p.country + ". " + t + ", " + when + ".";
     }
 
     function repaintPinClasses() {
