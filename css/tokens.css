@@ -1,0 +1,64 @@
+/* Design tokens. Owned by the design handoff — edit in Design, not here.
+   Values below are verbatim from design_handoff_places_map/app.css.
+
+   The only addition is the three-step visited scale (--visited-1/2/3): the
+   design ships a single --visited tint, and the build needs the fill to deepen
+   with visit count. Step 1 IS the design's value; steps 2 and 3 stay well below
+   --accent so pins keep their contrast against the fill, which is the
+   constraint the design calls out. --visited/--visited-edge remain as aliases
+   of step 1 so anything written against the original token still works. */
+
+[data-theme="dark"] {
+  --paper: #191715;
+  --panel: #1f1d1a;
+  --panel-2: #252220;
+  --rule: #37332c;
+  --rule-soft: #292621;
+  --ink: #f0e8d9;
+  --ink-2: #b3a994;
+  --ink-3: #9a9080;
+  --land: #272420;
+  --land-edge: #3d3830;
+  --grat: #252220;
+  --accent: #e0a13c;
+  --accent-soft: rgba(224, 161, 60, .16);
+  --accent-edge: rgba(224, 161, 60, .45);
+  --on-accent: #191715;
+
+  --visited-1: #382c1f;
+  --visited-2: #443320;
+  --visited-3: #503a21;
+  --visited-edge-1: #60492c;
+  --visited-edge-2: #6d5330;
+  --visited-edge-3: #7a5d34;
+}
+
+[data-theme="light"] {
+  --paper: #f1ebdf;
+  --panel: #faf6ec;
+  --panel-2: #f4eee1;
+  --rule: #ded4c0;
+  --rule-soft: #e8e0d0;
+  --ink: #221d16;
+  --ink-2: #5f5748;
+  --ink-3: #5f5748;
+  --land: #e6dfce;
+  --land-edge: #cabfa8;
+  --grat: #e1d9c6;
+  --accent: #b05e18;
+  --accent-soft: rgba(176, 94, 24, .14);
+  --accent-edge: rgba(176, 94, 24, .4);
+  --on-accent: #faf6ec;
+
+  --visited-1: #e7d3a9;
+  --visited-2: #ddc492;
+  --visited-3: #d3b57b;
+  --visited-edge-1: #b99c6a;
+  --visited-edge-2: #ae8e5b;
+  --visited-edge-3: #a3814d;
+}
+
+[data-theme] {
+  --visited: var(--visited-1);
+  --visited-edge: var(--visited-edge-1);
+}
