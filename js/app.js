@@ -67,13 +67,26 @@
     }
   }
 
+  // Every mutation of `draft` funnels through here, so this is the one place
+  // the memoised places array needs invalidating for the draft side.
   function saveDraft() {
+    placesChanged();
     writeStore(DRAFT_KEY, JSON.stringify(draft));
   }
 
   /* ---------- data ---------- */
 
-  function places() { return committed.concat(draft); }
+  /* Memoised so the array is referentially stable between changes. js/map.js
+     compares by identity to decide whether the pin layer needs a full rebuild;
+     handing it a fresh concat on every render made that check always true and
+     the cache behind it useless. Call placesChanged() after touching either
+     `committed` or `draft`. */
+  var placesCache = null;
+  function places() {
+    if (!placesCache) placesCache = committed.concat(draft);
+    return placesCache;
+  }
+  function placesChanged() { placesCache = null; }
 
   function filtered() {
     return places().filter(matches);
@@ -666,6 +679,7 @@
 
   form = blankForm();
   draft = loadDraft();
+  placesChanged();
   syncThemeButton();
 
   // A theme the viewer has not pinned follows the OS.
@@ -685,6 +699,7 @@
     fetch("data/cities.json").then(function (r) { return r.json(); }).catch(function () { return []; })
   ]).then(function (res) {
     committed = res[0];
+    placesChanged();
     cities = res[1];
     // Fold once at load rather than on every keystroke.
     cities.forEach(function (c) { c.k = fold(c.n); });

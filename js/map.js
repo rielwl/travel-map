@@ -127,6 +127,10 @@
       transform = d3.zoomIdentity;
 
       paintCountries();
+      // The previous signature described the SVG we just threw away, and the
+      // signature carries no geometry — so an identically-grouped place set
+      // would early-return and leave the new pin layer empty.
+      lastSignature = null;
       paintPins();
     }
 
@@ -217,14 +221,33 @@
 
     var lastSignature = null;
 
+    /* Which node currently represents each place — its own pin, or the cluster
+       it sits in. Used to put keyboard focus back after a rebuild. */
+    var nodeForPlace = {};
+
     function paintPins(force) {
       var items = layout();
       var sig = signature(items);
       if (!force && sig === lastSignature) { applyPinScale(); return; }
       lastSignature = sig;
 
+      /* Rebuilding destroys whatever the user was focused on, and browsers do
+         not fire blur on removal, so focus would silently fall to <body> —
+         which makes activating a cluster by keyboard a one-shot action. Note
+         the place that node stood for, and focus whatever represents it after
+         the rebuild. When a cluster splits, that is the sub-cluster or pin its
+         first member ended up in. */
+      var refocus = null;
+      var active = document.activeElement;
+      if (active && gPins.node().contains(active)) {
+        refocus = Object.keys(nodeForPlace).filter(function (id) {
+          return nodeForPlace[id] === active;
+        })[0] || null;
+      }
+
       gPins.selectAll("*").remove();
       pinById = {};
+      nodeForPlace = {};
 
       items.forEach(function (it) {
         if (it.kind === "cluster") drawCluster(it.group);
@@ -234,6 +257,10 @@
       // Selected pin last, so its ring is not covered by a neighbour.
       var sel = state.selectedId && pinById[state.selectedId];
       if (sel && sel.parentNode) sel.parentNode.appendChild(sel);
+
+      if (refocus && nodeForPlace[refocus]) {
+        nodeForPlace[refocus].focus({ preventScroll: true });
+      }
 
       applyPinScale();
     }
@@ -258,6 +285,7 @@
 
       var node = g.node();
       pinById[p.id] = node;
+      nodeForPlace[p.id] = node;
 
       node.addEventListener("click", function (ev) {
         ev.stopPropagation();
@@ -276,10 +304,15 @@
     }
 
     function drawCluster(group) {
-      // The group centre is in post-zoom units; put it back into the layer's
-      // own coordinates, which the zoom transform then re-applies.
-      var at = transform.invert(group.z);
+      /* Position the group in the layer's OWN coordinates — the mean of its
+         members' projected points. That is invariant under pan and zoom, so
+         the handlers below can read the live transform instead of closing over
+         a position that goes stale the moment the map is panned. */
       var n = group.members.length;
+      var at = [
+        group.members.reduce(function (s, m) { return s + m.xy[0]; }, 0) / n,
+        group.members.reduce(function (s, m) { return s + m.xy[1]; }, 0) / n
+      ];
       var names = group.members.map(function (m) { return m.p.city; });
 
       var g = gPins.append("g")
@@ -297,27 +330,32 @@
         .text(n);
 
       var node = g.node();
+      group.members.forEach(function (m) { nodeForPlace[m.p.id] = node; });
+
       var open = function () {
         // Zoom toward the cluster; repeated activation keeps splitting it.
-        svg.transition().duration(250).call(zoom.scaleBy, 2.2, group.z);
+        // transform is read now, not captured, so panning cannot stale it.
+        svg.transition().duration(250).call(zoom.scaleBy, 2.2, transform.apply(at));
       };
       node.addEventListener("click", function (ev) { ev.stopPropagation(); open(); });
       node.addEventListener("keydown", function (ev) {
         if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open(); }
       });
-      node.addEventListener("mouseenter", function () { hoverCluster(group, names); });
-      node.addEventListener("focus", function () { hoverCluster(group, names); });
+      node.addEventListener("mouseenter", function () { hoverCluster(at, names); });
+      node.addEventListener("focus", function () { hoverCluster(at, names); });
       node.addEventListener("mouseleave", function () { hover(null); });
       node.addEventListener("blur", function () { hover(null); });
     }
 
     // A cluster reports itself rather than a single place, so the tooltip can
-    // say what activating it would open up.
-    function hoverCluster(group, names) {
+    // say what activating it would open up. `at` is in layer coordinates; the
+    // live transform turns it into a position on screen.
+    function hoverCluster(at, names) {
       if (!opts.onPinHover) return;
+      var z = transform.apply(at);
       opts.onPinHover(
         { cluster: true, count: names.length, names: names },
-        { x: (group.z[0] / dims.w) * 100, y: (group.z[1] / dims.h) * 100 }
+        { x: (z[0] / dims.w) * 100, y: (z[1] / dims.h) * 100 }
       );
     }
 

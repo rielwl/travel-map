@@ -181,8 +181,12 @@ a:hover { color: var(--ink); }
   font: 400 10.5px/1.35 "IBM Plex Mono", monospace;
   letter-spacing: .04em;
   color: var(--ink);
-  /* Wraps rather than running off the map when a cluster lists several names.
-     Short single-pin labels still sit on one line. */
+  /* max-content, then capped: an absolutely-positioned box with only `left`
+     set is otherwise shrink-to-fit against the distance to its container's
+     right edge, so a tip near the right of the map would wrap every word onto
+     its own line. The cap is what makes a long cluster label wrap instead of
+     running off the map. */
+  width: max-content;
   max-width: 190px;
   transform: translate(-50%, calc(-100% - 10px));
 }
